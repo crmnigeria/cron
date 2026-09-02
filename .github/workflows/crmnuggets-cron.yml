@@ -1,0 +1,44 @@
+name: CRMNuggets Cron Jobs
+
+on:
+  schedule:
+    # Times are UTC. Nigeria is UTC+1, so adjust the hour mentally
+    # (e.g. '0 7 * * *' = 8am WAT).
+    - cron: '0 * * * *'    # grade_pending_tasks: hourly, on the hour
+    - cron: '0 7 * * *'    # send_course_digest: daily, 8am WAT
+    - cron: '30 6 * * *'   # send_inactivity_emails: daily, 7:30am WAT
+    - cron: '0 6 * * *'    # send_subscription_expiry_reminders: daily, 7am WAT
+  workflow_dispatch: {}     # lets you trigger any/all manually from the Actions tab
+
+jobs:
+  grade_pending_tasks:
+    if: github.event.schedule == '0 * * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hit grade_pending_tasks.php
+        run: |
+          curl -sS -f "https://crmnuggets.com/cron/grade_pending_tasks.php?key=${{ secrets.CRON_SECRET_KEY }}"
+
+  send_course_digest:
+    if: github.event.schedule == '0 7 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hit send_course_digest.php
+        run: |
+          curl -sS -f "https://crmnuggets.com/cron/send_course_digest.php?key=${{ secrets.CRON_SECRET_KEY }}"
+
+  send_inactivity_emails:
+    if: github.event.schedule == '30 6 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hit send_inactivity_emails.php
+        run: |
+          curl -sS -f "https://crmnuggets.com/cron/send_inactivity_emails.php?key=${{ secrets.CRON_SECRET_KEY }}"
+
+  send_subscription_expiry_reminders:
+    if: github.event.schedule == '0 6 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hit send_subscription_expiry_reminders.php
+        run: |
+          curl -sS -f "https://crmnuggets.com/cron/send_subscription_expiry_reminders.php?key=${{ secrets.CRON_SECRET_KEY }}"
