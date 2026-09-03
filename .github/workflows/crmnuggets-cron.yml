@@ -1,5 +1,4 @@
 name: CRMNuggets Cron Jobs
-
 on:
   schedule:
     # Times are UTC. Nigeria is UTC+1, so adjust the hour mentally
@@ -8,7 +7,6 @@ on:
     - cron: '30 6 * * *'   # send_inactivity_emails: daily, 7:30am WAT
     - cron: '0 6 * * *'    # send_subscription_expiry_reminders: daily, 7am WAT
   workflow_dispatch: {}     # lets you trigger any/all manually from the Actions tab
-
 jobs:
   send_course_digest:
     if: github.event.schedule == '0 7 * * *' || github.event_name == 'workflow_dispatch'
@@ -17,7 +15,6 @@ jobs:
       - name: Hit send_course_digest.php
         run: |
           curl -sS -f "https://crmnuggets.com/cron/send_course_digest.php?key=${{ secrets.CRON_SECRET_KEY }}"
-
   send_inactivity_emails:
     if: github.event.schedule == '30 6 * * *' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
@@ -25,7 +22,6 @@ jobs:
       - name: Hit send_inactivity_emails.php
         run: |
           curl -sS -f "https://crmnuggets.com/cron/send_inactivity_emails.php?key=${{ secrets.CRON_SECRET_KEY }}"
-
   send_subscription_expiry_reminders:
     if: github.event.schedule == '0 6 * * *' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
