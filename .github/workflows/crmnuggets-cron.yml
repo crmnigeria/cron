@@ -6,6 +6,7 @@ on:
     - cron: '0 7 * * *'    # send_course_digest: daily, 8am WAT
     - cron: '30 6 * * *'   # send_inactivity_emails: daily, 7:30am WAT
     - cron: '0 6 * * *'    # send_subscription_expiry_reminders: daily, 7am WAT
+    - cron: '15 6 * * *'   # send_winback_emails: daily, 7:15am WAT
   workflow_dispatch: {}     # lets you trigger any/all manually from the Actions tab
 jobs:
   send_course_digest:
@@ -29,3 +30,10 @@ jobs:
       - name: Hit send_subscription_expiry_reminders.php
         run: |
           curl -sS -f "https://crmnuggets.com/cron/send_subscription_expiry_reminders.php?key=${{ secrets.CRON_SECRET_KEY }}"
+  send_winback_emails:
+    if: github.event.schedule == '15 6 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hit send_winback_emails.php
+        run: |
+          curl -sS -f "https://crmnuggets.com/cron/send_winback_emails.php?key=${{ secrets.CRON_SECRET_KEY }}"
