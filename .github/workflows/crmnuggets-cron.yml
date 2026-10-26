@@ -15,25 +15,42 @@ jobs:
     steps:
       - name: Hit send_course_digest.php
         run: |
-          curl -sS -f "https://crmnuggets.com/cron/send_course_digest.php?key=${{ secrets.CRON_SECRET_KEY }}"
+          curl -sS -f --max-time 300 "https://crmnuggets.com/cron/send_course_digest.php?key=${{ secrets.CRON_SECRET_KEY }}"
   send_inactivity_emails:
     if: github.event.schedule == '30 6 * * *' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - name: Hit send_inactivity_emails.php
+      - name: Hit send_inactivity_emails.php in batches until done
+        env:
+          KEY: ${{ secrets.CRON_SECRET_KEY }}
         run: |
-          curl -sS -f "https://crmnuggets.com/cron/send_inactivity_emails.php?key=${{ secrets.CRON_SECRET_KEY }}"
+          after=0
+          total_sent=0
+          for i in $(seq 1 200); do
+            resp=$(curl -sS -f --max-time 150 "https://crmnuggets.com/cron/send_inactivity_emails.php?key=${KEY}&after=${after}")
+            echo "batch $i: $resp"
+            sent=$(echo "$resp" | jq -r '.sent // 0')
+            done_flag=$(echo "$resp" | jq -r '.done')
+            after=$(echo "$resp" | jq -r '.last_id // 0')
+            total_sent=$((total_sent + sent))
+            if [ "$done_flag" = "true" ]; then
+              echo "Finished. Total sent: $total_sent"
+              exit 0
+            fi
+          done
+          echo "Stopped after 200 batches. Total sent: $total_sent"
   send_subscription_expiry_reminders:
     if: github.event.schedule == '0 6 * * *' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Hit send_subscription_expiry_reminders.php
         run: |
-          curl -sS -f "https://crmnuggets.com/cron/send_subscription_expiry_reminders.php?key=${{ secrets.CRON_SECRET_KEY }}"
+          curl -sS -f --max-time 300 "https://crmnuggets.com/cron/send_subscription_expiry_reminders.php?key=${{ secrets.CRON_SECRET_KEY }}"
   send_winback_emails:
     if: github.event.schedule == '15 6 * * *' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Hit send_winback_emails.php
         run: |
-          curl -sS -f "https://crmnuggets.com/cron/send_winback_emails.php?key=${{ secrets.CRON_SECRET_KEY }}"
+          curl -sS -f --max-time 300 "https://crmnuggets.com/cron/send_winback_emails.php?key=${{ secrets.CRON_SECRET_KEY }}"
