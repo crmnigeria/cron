@@ -1,40 +1,16 @@
-name: CRMNuggets Cron Jobs
-on:
-  schedule:
-    # Times are UTC. Nigeria is UTC+1, so add one hour for WAT.
-    # --- daily jobs (already running) ---
-    - cron: '0 7 * * *'     # send_course_digest: 8am WAT
-    - cron: '30 6 * * *'    # send_inactivity_emails: 7:30am WAT
-    - cron: '0 6 * * *'     # send_subscription_expiry_reminders: 7am WAT
-    - cron: '15 6 * * *'    # send_winback_emails: 7:15am WAT
-    # --- recurring jobs (added) ---
-    - cron: '10 */6 * * *'  # grade_pending_tasks: every 6 hours
-    - cron: '20 */2 * * *'  # send_abandoned_energy_emails: every 2 hours
-    - cron: '40 */4 * * *'  # send_abandoned_mission_emails: every 4 hours
-  workflow_dispatch: {}      # run any/all manually from the Actions tab
-
-jobs:
-  send_course_digest:
+send_course_digest:
     if: github.event.schedule == '0 7 * * *' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Hit send_course_digest.php
-        run: |
-          curl -sS -f --max-time 300 "https://crmnuggets.com/cron/send_course_digest.php?key=${{ secrets.CRON_SECRET_KEY }}"
-
-  send_inactivity_emails:
-    if: github.event.schedule == '30 6 * * *' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Hit send_inactivity_emails.php in batches until done
+      - name: Hit send_course_digest.php in batches until done
         env:
           KEY: ${{ secrets.CRON_SECRET_KEY }}
         run: |
           after=0
           total_sent=0
           for i in $(seq 1 200); do
-            out=$(curl -sS --max-time 150 -w '\n%{http_code}' "https://crmnuggets.com/cron/send_inactivity_emails.php?key=${KEY}&after=${after}")
+            out=$(curl -sS --max-time 150 -w '\n%{http_code}' "https://crmnuggets.com/cron/send_course_digest.php?key=${KEY}&after=${after}")
             code=${out##*$'\n'}
             resp=${out%$'\n'*}
             echo "batch $i (HTTP $code): $resp"
@@ -53,43 +29,3 @@ jobs:
           done
           echo "::error::Stopped after 200 batches. Total sent: $total_sent"
           exit 1
-
-  send_subscription_expiry_reminders:
-    if: github.event.schedule == '0 6 * * *' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Hit send_subscription_expiry_reminders.php
-        run: |
-          curl -sS -f --max-time 300 "https://crmnuggets.com/cron/send_subscription_expiry_reminders.php?key=${{ secrets.CRON_SECRET_KEY }}"
-
-  send_winback_emails:
-    if: github.event.schedule == '15 6 * * *' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Hit send_winback_emails.php
-        run: |
-          curl -sS -f --max-time 300 "https://crmnuggets.com/cron/send_winback_emails.php?key=${{ secrets.CRON_SECRET_KEY }}"
-
-  grade_pending_tasks:
-    if: github.event.schedule == '10 */6 * * *' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Hit grade_pending_tasks.php
-        run: |
-          curl -sS -f --max-time 300 "https://crmnuggets.com/cron/grade_pending_tasks.php?key=${{ secrets.CRON_SECRET_KEY }}"
-
-  send_abandoned_energy_emails:
-    if: github.event.schedule == '20 */2 * * *' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Hit send_abandoned_energy_emails.php
-        run: |
-          curl -sS -f --max-time 300 "https://crmnuggets.com/cron/send_abandoned_energy_emails.php?key=${{ secrets.CRON_SECRET_KEY }}"
-
-  send_abandoned_mission_emails:
-    if: github.event.schedule == '40 */4 * * *' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Hit send_abandoned_mission_emails.php
-        run: |
-          curl -sS -f --max-time 300 "https://crmnuggets.com/cron/send_abandoned_mission_emails.php?key=${{ secrets.CRON_SECRET_KEY }}"
