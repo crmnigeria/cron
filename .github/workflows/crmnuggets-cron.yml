@@ -1,41 +1,39 @@
-name: Set up cron-job.org jobs
+name: CRMNuggets course digest
 
-# Manual only: nothing runs until you click "Run workflow" on the Actions tab.
 on:
+  schedule:
+    - cron: '0 7 * * *'   # 07:00 UTC = 08:00 Africa/Lagos
   workflow_dispatch:
-    inputs:
-      mode:
-        description: "preview = change nothing, apply = make the changes, trial-off = delete all three trial jobs"
-        type: choice
-        options:
-          - preview
-          - apply
-          - trial-off
-        default: preview
-      city_push:
-        description: "Also create the send_city_push.php job (every 10 minutes)"
-        type: boolean
-        default: false
 
 jobs:
-  cronjobs:
+  send_course_digest:
+    if: github.event.schedule == '0 7 * * *' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Run setup_cronjobs.py
+      - name: Hit send_course_digest.php in batches until done
         env:
-          CRONJOB_API_KEY: ${{ secrets.CRONJOB_API_KEY }}
-          CRON_SECRET_KEY: ${{ secrets.CRON_SECRET_KEY }}
-          MODE: ${{ inputs.mode }}
-          CITY_PUSH: ${{ inputs.city_push }}
+          KEY: ${{ secrets.CRON_SECRET_KEY }}
         run: |
-          ARGS=""
-          if [ "$MODE" = "apply" ]; then ARGS="--apply"; fi
-          if [ "$MODE" = "trial-off" ]; then ARGS="--apply --trial-off"; fi
-          if [ "$CITY_PUSH" = "true" ]; then ARGS="$ARGS --city-push"; fi
-          python scripts/setup_cronjobs.py $ARGS
+          after=0
+          total_sent=0
+          for i in $(seq 1 200); do
+            out=$(curl -sS --max-time 150 -w '\n%{http_code}' "https://crmnuggets.com/cron/send_course_digest.php?key=${KEY}&after=${after}")
+            code=${out##*$'\n'}
+            resp=${out%$'\n'*}
+            echo "batch $i (HTTP $code): $resp"
+            if [ "$code" != "200" ]; then
+              echo "::error::Batch $i failed with HTTP $code"
+              exit 1
+            fi
+            sent=$(echo "$resp" | jq -r '.sent // 0')
+            done_flag=$(echo "$resp" | jq -r '.done')
+            after=$(echo "$resp" | jq -r '.last_id // 0')
+            total_sent=$((total_sent + sent))
+            if [ "$done_flag" = "true" ]; then
+              echo "Finished. Total sent: $total_sent"
+              exit 0
+            fi
+          done
+          echo "::error::Stopped after 200 batches. Total sent: $total_sent"
+          exit 1
